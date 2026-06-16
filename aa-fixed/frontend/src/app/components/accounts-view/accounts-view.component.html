@@ -1,0 +1,134 @@
+<div class="accounts-page">
+
+  <div class="loading-card" *ngIf="loading">
+    <div class="spinner-lg"></div><p>Loading financial data…</p>
+  </div>
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loading && !error">
+
+    <!-- Empty state -->
+    <div class="empty-state" *ngIf="accounts.length === 0">
+      <div class="empty-icon">🏦</div>
+      <h3>No accounts found</h3>
+      <p>No financial data is available for this fetch session. The FIP may not have returned any data yet.</p>
+      <button class="btn btn-outline" routerLink="/consent/new">← New Consent</button>
+    </div>
+
+    <!-- Two-panel layout -->
+    <div class="accounts-layout" *ngIf="accounts.length > 0">
+
+      <!-- Left: account list -->
+      <aside class="account-sidebar">
+        <div class="sidebar-header">
+          <span class="sidebar-title">Accounts</span>
+          <span class="account-count">{{ accounts.length }}</span>
+        </div>
+        <div class="account-list">
+          <div class="account-card" *ngFor="let acc of accounts"
+               [class.selected]="selectedAccount?.id === acc.id"
+               (click)="selectAccount(acc)">
+            <div class="account-icon">
+              {{ acc.fiType === 'DEPOSIT' ? '🏦' : acc.fiType === 'MUTUAL_FUNDS' ? '📈' : '💼' }}
+            </div>
+            <div class="account-info">
+              <div class="account-type">{{ acc.accountType || acc.fiType }}</div>
+              <div class="account-no">{{ acc.maskedAccNo || '****' }}</div>
+            </div>
+            <div class="account-bal" [class.negative]="acc.balance < 0">
+              ₹{{ acc.balance | number:'1.2-2' }}
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Right: account detail -->
+      <main class="account-detail" *ngIf="selectedAccount">
+
+        <!-- Account header -->
+        <div class="detail-header">
+          <div>
+            <h2>{{ selectedAccount.accountType || selectedAccount.fiType }}</h2>
+            <p>{{ selectedAccount.holderName }} &nbsp;·&nbsp; {{ selectedAccount.maskedAccNo }}</p>
+          </div>
+          <div class="balance-chip">
+            <span class="balance-label">Balance</span>
+            <span class="balance-amount">₹{{ selectedAccount.balance | number:'1.2-2' }}</span>
+          </div>
+        </div>
+
+        <!-- Account meta -->
+        <div class="meta-grid">
+          <div class="meta-item">
+            <label>FIP</label><span>{{ selectedAccount.fipId || '—' }}</span>
+          </div>
+          <div class="meta-item">
+            <label>IFSC</label><span>{{ selectedAccount.ifscCode || '—' }}</span>
+          </div>
+          <div class="meta-item">
+            <label>Branch</label><span>{{ selectedAccount.branch || '—' }}</span>
+          </div>
+          <div class="meta-item">
+            <label>Currency</label><span>{{ selectedAccount.currency }}</span>
+          </div>
+        </div>
+
+        <!-- Transaction summary -->
+        <div class="summary-row">
+          <div class="summary-card credit-card">
+            <span class="s-label">Total Credits</span>
+            <span class="s-amount">₹{{ totalCredit(selectedAccount) | number:'1.2-2' }}</span>
+          </div>
+          <div class="summary-card debit-card">
+            <span class="s-label">Total Debits</span>
+            <span class="s-amount">₹{{ totalDebit(selectedAccount) | number:'1.2-2' }}</span>
+          </div>
+          <div class="summary-card">
+            <span class="s-label">Transactions</span>
+            <span class="s-amount">{{ selectedAccount.transactions.length }}</span>
+          </div>
+        </div>
+
+        <!-- Transaction table -->
+        <div class="txn-section">
+          <div class="txn-header">
+            <h3>Transactions</h3>
+          </div>
+          <div class="txn-empty" *ngIf="selectedAccount.transactions.length === 0">
+            No transactions in the selected date range.
+          </div>
+          <div class="txn-table-wrap" *ngIf="selectedAccount.transactions.length > 0">
+            <table class="txn-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Narration</th>
+                  <th>Mode</th>
+                  <th>Type</th>
+                  <th class="text-right">Amount (₹)</th>
+                  <th class="text-right">Balance (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let txn of selectedAccount.transactions">
+                  <td class="nowrap">{{ txn.txnDate | date:'dd MMM yy' }}</td>
+                  <td class="narration">{{ txn.narration || '—' }}</td>
+                  <td>{{ txn.mode || '—' }}</td>
+                  <td>
+                    <span class="txn-badge" [ngClass]="txnClass(txn.txnType)">
+                      {{ txn.txnType }}
+                    </span>
+                  </td>
+                  <td class="text-right" [ngClass]="txnClass(txn.txnType)">
+                    {{ txn.amount | number:'1.2-2' }}
+                  </td>
+                  <td class="text-right">{{ txn.balance | number:'1.2-2' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </ng-container>
+</div>

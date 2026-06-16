@@ -1,0 +1,66 @@
+version: '3.9'
+
+services:
+
+  # ── PostgreSQL ─────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: aa_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aa_db
+      POSTGRES_USER: aa_user
+      POSTGRES_PASSWORD: aa_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aa_user -d aa_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Spring Boot Backend ────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: aa_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/aa_db
+      DB_USERNAME: aa_user
+      DB_PASSWORD: aa_pass
+      # Digio sandbox credentials — override with env vars in production
+      DIGIO_BASE_URL: https://ext.digio.in:444
+      DIGIO_USERNAME: ${DIGIO_USERNAME}
+      DIGIO_PASSWORD: ${DIGIO_PASSWORD}
+      DIGIO_TEMPLATE_ID: ${DIGIO_TEMPLATE_ID}
+      CORS_ORIGINS: http://localhost:4200
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-in-prod-32ch}
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Angular Frontend ───────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: aa_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "4200:80"
+
+volumes:
+  pg_data:

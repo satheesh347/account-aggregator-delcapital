@@ -1,0 +1,89 @@
+<div class="status-page">
+
+  <!-- Loading -->
+  <div class="loading-card" *ngIf="loading">
+    <div class="spinner-lg"></div>
+    <p>Loading consent details…</p>
+  </div>
+
+  <!-- Error -->
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <!-- Consent card -->
+  <div class="card" *ngIf="consent && !loading">
+    <div class="card-header">
+      <div class="header-row">
+        <div>
+          <h2>Consent Status</h2>
+          <code class="consent-id">{{ consent.id }}</code>
+        </div>
+        <span class="badge" [ngClass]="statusClass(consent.status)">
+          {{ statusIcon(consent.status) }} {{ consent.status }}
+        </span>
+      </div>
+    </div>
+
+    <div class="card-body">
+
+      <!-- PENDING banner -->
+      <div class="info-banner" *ngIf="consent.status === 'PENDING'">
+        <span class="pulse-dot"></span>
+        Waiting for customer to sign the consent. Page auto-refreshes.
+        <button class="btn btn-outline btn-sm" (click)="openConsentUrl()" *ngIf="consent.consentUrl">
+          Open Consent Link ↗
+        </button>
+      </div>
+
+      <!-- ACTIVE banner -->
+      <div class="success-banner" *ngIf="consent.status === 'ACTIVE'">
+        ✅ Consent is active. You can now fetch financial data.
+      </div>
+
+      <!-- Rejected/Revoked banner -->
+      <div class="error-banner" *ngIf="consent.status === 'REJECTED' || consent.status === 'REVOKED'">
+        ❌ Consent {{ consent.status | lowercase }}. Please create a new consent request.
+      </div>
+
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label>Purpose</label>
+          <span>{{ consent.purposeText || consent.purposeCode }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Fetch Type</label>
+          <span>{{ consent.fetchType }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Consent Start</label>
+          <span>{{ consent.consentStart | date:'medium' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Consent Expiry</label>
+          <span>{{ consent.consentExpiry | date:'medium' }}</span>
+        </div>
+        <div class="detail-item">
+          <label>Digio Consent ID</label>
+          <code>{{ consent.digioConsentId || '—' }}</code>
+        </div>
+        <div class="detail-item">
+          <label>Created</label>
+          <span>{{ consent.createdAt | date:'medium' }}</span>
+        </div>
+        <div class="detail-item full">
+          <label>FI Types</label>
+          <div class="tag-row">
+            <span class="tag" *ngFor="let fi of consent.fiTypes">{{ fi }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-footer">
+      <button class="btn btn-outline" routerLink="/consent/new">← New Consent</button>
+      <button class="btn btn-primary" (click)="proceedToFetch()"
+              [disabled]="consent.status !== 'ACTIVE'">
+        Fetch Financial Data →
+      </button>
+    </div>
+  </div>
+</div>

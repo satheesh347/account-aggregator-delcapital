@@ -1,0 +1,128 @@
+<div class="fetch-page">
+
+  <div class="loading-card" *ngIf="loadingConsent">
+    <div class="spinner-lg"></div><p>Loading consent…</p>
+  </div>
+
+  <div class="alert alert-error" *ngIf="error">{{ error }}</div>
+
+  <ng-container *ngIf="!loadingConsent && consent">
+
+    <!-- Consent summary banner -->
+    <div class="consent-banner">
+      <div class="banner-info">
+        <span class="label">Active Consent</span>
+        <code>{{ consent.id }}</code>
+      </div>
+      <div class="banner-meta">
+        <span>Expires: {{ consent.consentExpiry | date:'mediumDate' }}</span>
+        <span class="dot">·</span>
+        <span>{{ consent.fetchType }}</span>
+      </div>
+    </div>
+
+    <!-- Fetch form (hidden once session exists) -->
+    <div class="card" *ngIf="!session">
+      <div class="card-header">
+        <h2>Fetch Financial Data</h2>
+        <p>Select FI types and date range — data is retrieved from FIPs via the AA framework</p>
+      </div>
+
+      <form [formGroup]="form" (ngSubmit)="submit()" class="aa-form">
+        <fieldset>
+          <legend>FI Types to Fetch</legend>
+          <div class="fi-type-grid">
+            <label class="fi-chip" *ngFor="let fi of fiTypeOptions"
+                   [class.selected]="isFiTypeSelected(fi.value)">
+              <input type="checkbox" [checked]="isFiTypeSelected(fi.value)"
+                     (change)="onFiTypeChange(fi.value, $event)" />
+              {{ fi.label }}
+            </label>
+          </div>
+        </fieldset>
+
+        <fieldset>
+          <legend>Date Range</legend>
+          <div class="form-row">
+            <div class="form-group">
+              <label>From</label>
+              <input type="date" formControlName="dateRangeFrom" />
+            </div>
+            <div class="form-group">
+              <label>To</label>
+              <input type="date" formControlName="dateRangeTo" />
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button class="btn btn-outline" type="button" routerLink="/consent/{{ consent.id }}">← Back</button>
+          <button class="btn btn-primary" type="submit" [disabled]="submitting">
+            <span *ngIf="!submitting">Initiate Fetch →</span>
+            <span *ngIf="submitting" class="spinner"></span>
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Session status card -->
+    <div class="card" *ngIf="session">
+      <div class="card-header">
+        <div class="header-row">
+          <div>
+            <h2>Fetch Session</h2>
+            <code class="session-id">{{ session.id }}</code>
+          </div>
+          <span class="badge" [ngClass]="statusClass(session.status)">
+            {{ session.status }}
+          </span>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <!-- Processing state -->
+        <div class="processing-block" *ngIf="session.status === 'INITIATED' || session.status === 'PROCESSING'">
+          <div class="progress-track">
+            <div class="progress-fill"></div>
+          </div>
+          <p class="processing-text">
+            <span class="pulse-dot"></span>
+            Retrieving data from Financial Information Providers… Please wait.
+          </p>
+        </div>
+
+        <!-- Error state -->
+        <div class="error-banner" *ngIf="session.status === 'FAILED'">
+          <strong>Fetch failed.</strong>
+          <span *ngIf="session.errorMessage"> {{ session.errorMessage }}</span>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-item">
+            <label>Digio Session ID</label>
+            <code>{{ session.digioSessionId || '—' }}</code>
+          </div>
+          <div class="detail-item">
+            <label>Date Range</label>
+            <span>{{ session.dateRangeFrom }} → {{ session.dateRangeTo }}</span>
+          </div>
+          <div class="detail-item full">
+            <label>FI Types</label>
+            <div class="tag-row">
+              <span class="tag" *ngFor="let fi of session.fiTypes">{{ fi }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer">
+        <button class="btn btn-outline" (click)="session = null">← Try Again</button>
+        <button class="btn btn-primary" [routerLink]="['/accounts', session.id]"
+                [disabled]="session.status !== 'COMPLETED'">
+          View Accounts →
+        </button>
+      </div>
+    </div>
+
+  </ng-container>
+</div>

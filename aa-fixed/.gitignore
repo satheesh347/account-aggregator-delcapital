@@ -1,0 +1,28 @@
+# Credentials — never commit
+.env
+*.env
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Node / Angular
+node_modules/
+dist/
+.angular/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
