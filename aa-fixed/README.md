@@ -1,274 +1,330 @@
-# Del Capital — Account Aggregator Integration
+# Account Aggregator Integration – Del Capital Assessment
 
-A full-stack implementation of the **RBI Account Aggregator (AA) framework** using **Digio** as the AA operator, built for Del Capital's FIU workflows (credit decisioning, underwriting, risk analytics).
+## Overview
 
----
+This project implements an Account Aggregator (AA) integration using Spring Boot, PostgreSQL, Angular, and Digio Sandbox APIs.
 
-## Architecture
+The application enables:
 
-```
-Customer Browser
-      │
-      ▼
-┌─────────────┐          ┌─────────────────────┐
-│  Angular UI  │──REST───▶│  Spring Boot Backend │
-│  (Port 4200) │◀─JSON───│  (Port 8080)         │
-└─────────────┘          └────────┬─────────────┘
-                                   │  HTTPS (Basic Auth)
-                          ┌────────▼─────────────┐
-                          │   Digio AA API        │
-                          │   ext.digio.in:444    │
-                          └────────┬─────────────┘
-                                   │ Webhook callbacks
-                          ┌────────▼─────────────┐
-                          │   PostgreSQL           │
-                          │   (Port 5432)          │
-                          └─────────────────────────┘
-```
+* Customer consent creation
+* Consent lifecycle management
+* Financial Information (FI) data fetch initiation
+* Webhook processing
+* Audit logging
+* Data persistence
+* Basic Angular UI for customer interaction
 
-### Key flows
-
-```
-1. Consent Flow
-   UI → POST /v1/consents → Digio createConsent → consentUrl returned
-   Customer visits consentUrl → signs consent on Digio
-   Digio → POST /v1/webhook/digio (CONSENT_STATUS_UPDATE → ACTIVE)
-
-2. Data Fetch Flow
-   UI → POST /v1/fi/fetch → Digio initiateDataFetch → sessionId returned
-   Digio fetches from FIPs asynchronously
-   Digio → POST /v1/webhook/digio (DATA_FETCH_STATUS_UPDATE → COMPLETED)
-   Backend downloads & normalises FI data → saved to PostgreSQL
-   UI → GET /v1/fi/fetch/{sessionId}/accounts → canonical accounts + txns
-```
+The solution follows a layered architecture with DTO validation, service abstraction, persistence, audit tracking, resilience mechanisms, and API documentation.
 
 ---
 
-## Project Structure
+# Technology Stack
 
-```
-aa-integration/
-├── backend/                        # Spring Boot 3.2, Java 17
-│   ├── src/main/java/com/delcapital/aa/
-│   │   ├── config/                 # Digio client, security, async, MDC, OpenAPI
-│   │   ├── controller/             # REST controllers
-│   │   ├── dto/                    # Request / response DTOs
-│   │   ├── entity/                 # JPA entities
-│   │   ├── enums/                  # ConsentStatus, FetchStatus, FiType
-│   │   ├── exception/              # Custom exceptions + global handler
-│   │   ├── repository/             # Spring Data JPA repos
-│   │   └── service/                # Business logic + Digio API client
-│   ├── src/main/resources/
-│   │   ├── application.yml
-│   │   └── db/migration/           # Flyway SQL migrations
-│   └── Dockerfile
-│
-├── frontend/                       # Angular 17
-│   ├── src/app/
-│   │   ├── components/
-│   │   │   ├── consent-form/       # Initiate consent
-│   │   │   ├── consent-status/     # Poll + display consent status
-│   │   │   ├── fetch-data/         # Trigger FI data fetch
-│   │   │   └── accounts-view/      # Normalised accounts + transactions
-│   │   ├── services/aa-api.service.ts
-│   │   ├── models/aa.models.ts
-│   │   └── interceptors/auth.interceptor.ts
-│   ├── Dockerfile
-│   └── nginx.conf
-│
-├── docker-compose.yml
-├── .env.example
-└── README.md
-```
+## Backend
+
+* Java 17
+* Spring Boot 3.2.5
+* Spring Data JPA
+* Spring Security
+* Spring Validation
+* Spring WebFlux (WebClient)
+* PostgreSQL
+* Flyway
+* Resilience4j
+* Swagger / OpenAPI
+* Lombok
+
+## Frontend
+
+* Angular
+* TypeScript
+* Bootstrap
+
+## Database
+
+* PostgreSQL 18
 
 ---
 
-## Prerequisites
+# Project Structure
 
-| Tool | Version |
-|------|---------|
-| Java | 17+ |
-| Maven | 3.9+ |
-| Node.js | 20+ |
-| Docker & Compose | Latest |
-| PostgreSQL | 16 (or via Docker) |
+backend/
+├── config/
+├── controller/
+├── dto/
+├── entity/
+├── enums/
+├── exception/
+├── repository/
+├── service/
+├── resources/
+│ ├── db/migration
+│ └── application.yml
+└── pom.xml
 
----
-
-## Quick Start (Docker — recommended)
-
-```bash
-# 1. Clone and enter the project
-cd aa-integration
-
-# 2. Set credentials
-cp .env.example .env
-# Edit .env — fill DIGIO_USERNAME, DIGIO_PASSWORD, DIGIO_TEMPLATE_ID
-
-# 3. Start everything
-docker compose up --build
-
-# Frontend:  http://localhost:4200
-# Backend:   http://localhost:8080/api
-# Swagger:   http://localhost:8080/api/swagger-ui.html
-```
+frontend/
+├── src/
+├── app/
+├── components/
+└── services/
 
 ---
 
-## Manual Local Setup
+# Features Implemented
 
-### Backend
+## Consent Management
 
-```bash
-cd backend
+* Create Consent
+* Retrieve Consent
+* Customer Consent Listing
+* Consent Status Updates
 
-# Start PostgreSQL (or use Docker)
-docker run -d --name aa_pg -e POSTGRES_DB=aa_db \
-  -e POSTGRES_USER=aa_user -e POSTGRES_PASSWORD=aa_pass \
-  -p 5432:5432 postgres:16-alpine
+## Financial Information
 
-# Export Digio credentials
-export DIGIO_USERNAME=ACK25030511375911186LKWJDXERYTXQ
-export DIGIO_PASSWORD=CGYGOZKNCMHN8I8GSA5HH2DFKRSR732L
-export DIGIO_TEMPLATE_ID=CTMP250909154046573UG2FM8U7NZK36
+* Initiate Data Fetch
+* Fetch Session Status
+* Retrieve Accounts
 
-# Run
-mvn spring-boot:run
-```
+## Webhooks
 
-### Frontend
+* Digio Webhook Receiver
+* Retry Handling
 
-```bash
-cd frontend
-npm install
-npm start        # serves on http://localhost:4200
-                 # proxies /api → http://localhost:8080
-```
+## Audit
 
----
+* Audit Log Persistence
+* Compliance Tracking
 
-## API Reference
+## Reliability
 
-Full interactive docs at `http://localhost:8080/api/swagger-ui.html`
-
-### Consent APIs
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/v1/consents` | Create consent (idempotent) |
-| GET | `/v1/consents/{id}` | Get consent by ID |
-| GET | `/v1/consents/customer/{externalId}` | List consents for customer |
-
-**Create Consent Request body:**
-```json
-{
-  "customerExternalId": "CUST-001",
-  "customerName": "Satheesh Kumar",
-  "mobile": "9876543210",
-  "email": "satheesh@example.com",
-  "purposeCode": "104",
-  "purposeText": "Credit decisioning",
-  "fiTypes": ["DEPOSIT"],
-  "consentStart": "2026-06-13T00:00:00+05:30",
-  "consentExpiry": "2027-06-13T00:00:00+05:30",
-  "fetchType": "ONETIME"
-}
-```
-
-### FI Data APIs
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/v1/fi/fetch` | Initiate data fetch (idempotent) |
-| GET | `/v1/fi/fetch/{sessionId}` | Poll fetch status |
-| GET | `/v1/fi/fetch/{sessionId}/accounts` | Get normalised accounts + txns |
-
-### Webhook
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/v1/webhook/digio` | Receives async events from Digio |
-
-### Other
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/v1/customers/{externalId}` | Get customer |
-| GET | `/v1/audit/{entityType}/{entityId}` | Get audit logs |
-
----
-
-## Sandbox Testing
-
-Per the assignment constraints, live AA data cannot be fetched. Use these steps:
-
-1. Create a consent via the UI or API
-2. Copy the `consentUrl` from the response and open it in a browser
-3. Select **FinShareBank OE UAT FIP** as the FIP
-4. Enter OTP: **021069**
-5. Consent becomes ACTIVE (webhook fires or poll detects it)
-6. Trigger data fetch — sandbox returns mock FI data
-
----
-
-## Database Schema
-
-### Tables
-
-| Table | Purpose |
-|-------|---------|
-| `customers` | Stores customer identity (PII-minimised) |
-| `consent_requests` | Full consent lifecycle records |
-| `fi_fetch_sessions` | Each data-fetch attempt |
-| `fi_accounts` | Normalised account data from FIPs |
-| `fi_transactions` | Individual transaction records |
-| `audit_logs` | Append-only compliance audit trail |
-| `webhook_events` | Raw Digio webhook payloads (idempotent store) |
-
-All tables use UUID primary keys and `TIMESTAMPTZ` timestamps. `updated_at` is managed by PostgreSQL triggers.
-
----
-
-## Security Controls
-
-| Control | Implementation |
-|---------|----------------|
-| Transport security | HTTPS enforced (Digio calls over TLS 1.2+) |
-| Credential storage | Never in code — env vars / secrets manager |
-| Stateless auth | JWT Bearer tokens |
-| CORS | Allowlist via `cors.allowed-origins` |
-| Input validation | Jakarta Bean Validation on all DTOs |
-| PII minimisation | Mobile masked in API responses; raw FIP payloads stored as JSONB (encrypt-at-rest via DB-level encryption) |
-| Audit trail | Append-only `audit_logs` table, never deleted |
-| Idempotency | Consent + fetch endpoints are fully idempotent via caller-supplied keys |
-| Webhook safety | Raw events persisted before processing; retry scheduler for failures |
-| Non-root container | Spring Boot runs as `spring:spring` user in Docker |
-
----
-
-## Resilience
-
-- **Circuit Breaker** (Resilience4j) on all Digio API calls — opens after 50% failure rate over 10 calls
-- **Retry** — up to 3 attempts with 2s backoff for transient Digio failures
-- **Async fetch** — FI data download runs on a separate thread pool, never blocking HTTP threads
-- **Webhook retry scheduler** — retries unprocessed webhook events every 60 seconds
-- **Idempotency** — safe to replay any request without side effects
-
----
+* Retry Mechanism
+* Circuit Breaker
+* Idempotency Support
 
 ## Observability
 
-- Structured logs with MDC trace IDs (`X-Trace-Id` header propagated)
-- Prometheus metrics at `/api/actuator/prometheus`
-- Health check at `/api/actuator/health`
-- All Digio request/response payloads stored in `raw_request` / `raw_response` JSONB columns
+* Spring Actuator
+* Health Endpoint
+* Metrics Endpoint
+* Structured Logging
 
 ---
 
-## Compliance Notes
+# Database Schema
 
-- Consent records are never deleted — soft lifecycle via `status` field
-- Audit log is append-only by design (no DELETE/UPDATE triggers)
-- FIP raw payloads retained per regulatory requirements
-- No personal account numbers stored — only masked references from FIPs
-- Sandbox: do not enter real account details per Digio sandbox policy
+Entities:
+
+* Customer
+* ConsentRequest
+* FiFetchSession
+* FiAccount
+* FiTransaction
+* AuditLog
+* WebhookEvent
+
+Database migrations are managed using Flyway.
+
+---
+
+# Running PostgreSQL
+
+Create Database:
+
+```sql
+CREATE DATABASE aa_db;
+```
+
+Create User:
+
+```sql
+CREATE USER aa_user WITH PASSWORD 'aa_pass';
+GRANT ALL PRIVILEGES ON DATABASE aa_db TO aa_user;
+```
+
+Backend Configuration
+
+application.yml
+
+```yaml
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/aa_db
+    username: aa_user
+    password: aa_pass
+```
+
+Digio Sandbox Configuration
+
+Credentials provided by Del Capital:
+
+```text
+Username: ACK25030511375911186LKWJDXERYTXQ
+Password: ********
+Template ID: CTMP250909154046573UG2FM8U7NZK36
+Base URL: https://ext.digio.in:444/fiu_api
+```
+
+Configured in:
+
+```yaml
+digio:
+  base-url: https://ext.digio.in:444/fiu_api
+  username: ${DIGIO_USERNAME}
+  password: ${DIGIO_PASSWORD}
+  template-id: ${DIGIO_TEMPLATE_ID}
+```
+
+Running Backend
+
+Navigate to backend directory:
+
+```bash
+cd backend
+```
+
+Build project:
+
+```bash
+mvn clean install
+```
+
+Run application:
+
+```bash
+mvn spring-boot:run
+```
+
+Backend URL:
+
+```text
+http://localhost:8080/api
+```
+
+Swagger:
+
+```text
+http://localhost:8080/api/swagger-ui/index.html
+```
+
+Health Check:
+
+```text
+http://localhost:8080/api/actuator/health
+```
+
+Running Frontend
+
+Navigate to frontend:
+
+```bash
+cd frontend
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Run Angular application:
+
+```bash
+npm start
+```
+
+Frontend URL:
+
+```text
+http://localhost:4200
+```
+
+API Endpoints
+
+Consent APIs
+
+```http
+POST /api/v1/consents
+GET  /api/v1/consents/{consentId}
+GET  /api/v1/consents/customer/{externalId}
+```
+
+FI Data APIs
+
+```http
+POST /api/v1/fi/fetch
+GET  /api/v1/fi/fetch/{sessionId}
+GET  /api/v1/fi/fetch/{sessionId}/accounts
+```
+
+Webhook
+
+```http
+POST /api/v1/webhook/digio
+```
+
+Audit
+
+```http
+GET /api/v1/audit/{entityType}/{entityId}
+```
+
+Testing
+
+Backend Health:
+
+```text
+http://localhost:8080/api/actuator/health
+```
+
+Expected Response:
+
+```json
+{
+  "status": "UP"
+}
+```
+
+Swagger UI:
+
+```text
+http://localhost:8080/api/swagger-ui/index.html
+```
+
+Known Limitations
+
+* Digio Sandbox APIs were used.
+* Live banking data cannot be fetched in sandbox mode.
+* Consent creation depends on Digio sandbox endpoint availability.
+* Some Digio endpoint behaviors are restricted in sandbox environments.
+* Financial data retrieval requires sandbox-supported FIPs.
+
+Security Considerations
+
+* Basic Authentication used for Digio integration.
+* DTO validation implemented.
+* Audit logging enabled.
+* PII stored only for required compliance use cases.
+* Sensitive credentials externalized through environment variables.
+
+Reliability Features
+
+* Resilience4j Retry
+* Resilience4j Circuit Breaker
+* Idempotency Key Support
+* Structured Error Handling
+* Transaction Management
+
+Future Improvements
+
+* OAuth2/JWT based authentication
+* Encryption of sensitive PII
+* Distributed tracing
+* Kafka based webhook processing
+* Enhanced consent lifecycle monitoring
+* Additional FIP normalization adapters
+
+Author
+
+Satheesh Rallapalli
+
+Submission for Del Capital Software Engineer Assessment.
